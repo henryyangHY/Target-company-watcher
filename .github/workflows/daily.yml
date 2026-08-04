@@ -1,0 +1,60 @@
+name: Daily job watch
+
+on:
+  # GitHub 的 cron 只吃 UTC，不認美國 DST，所以這裡排了四個時間點：
+  #   13:00 UTC = 早上 8 點（夏令 CDT）    14:00 UTC = 早上 8 點（冬令 CST）
+  #   01:00 UTC = 晚上 8 點（夏令 CDT）    02:00 UTC = 晚上 8 點（冬令 CST）
+  # 由 fetch.js 用 RUN_HOURS 檢查芝加哥當地時間，不對就立刻結束。
+  # 實際每天只會有 2 次真的跑，另外 2 次幾秒內就退出。
+  schedule:
+    - cron: '0 13,14,1,2 * * *'
+
+  # Actions 頁面上手動觸發，用來測試
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: '只預覽不推送 Slack'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write # 需要寫回 seen.json 和 digests/
+
+concurrency:
+  group: job-watch
+  cancel-in-progress: false
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Scan career sites
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          RUN_HOURS: '8,20'
+        run: |
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            node fetch.js --dry-run --force
+          else
+            node fetch.js
+          fi
+
+      - name: Commit state
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            git config user.name  "job-watcher"
+            git config user.email "actions@github.com"
+            git add seen.json digests/
+            git commit -m "chore: update seen state ($(date -u +%Y-%m-%d))"
+            git push
+          else
+            echo "沒有變動，不 commit"
+          fi

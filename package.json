@@ -1,0 +1,14 @@
+{
+  "name": "target-company-watcher",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "每日監看指定公司官網的 intern 職缺，有新的就推 Slack。零依賴、零 AI token。",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "start": "node fetch.js",
+    "dry": "node fetch.js --dry-run --force",
+    "seed": "node fetch.js --seed --force",
+    "probe": "node probe.js"
+  }
+}
