@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "description": "每日監看指定公司官網的 intern 職缺，有新的就推 Slack。零依賴、零 AI token。",
-  "engines": { "node": ">=20" },
+  "engines": { "node": ">=22" },
   "scripts": {
     "start": "node fetch.js",
     "dry": "node fetch.js --dry-run --force",

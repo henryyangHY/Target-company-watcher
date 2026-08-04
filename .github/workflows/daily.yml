@@ -30,11 +30,15 @@ jobs:
     timeout-minutes: 15
 
     steps:
-      - uses: actions/checkout@v4
+      # v4 是 Node 20 runtime，已被 GitHub 標記 deprecated（會強制拉到 Node 24 跑
+      # 並在 log 留 warning）。v5 以上才是原生 node24。
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
-          node-version: '20'
+          # 這是拿來跑 fetch.js 的 Node 版本，跟上面 action 的 runtime 無關。
+          # Node 20 已於 2026-04 EOL，用 22 LTS。
+          node-version: '22'
 
       - name: Scan career sites
         env:
