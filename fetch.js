@@ -12,6 +12,9 @@
 //   node fetch.js --dry-run    只印出結果，不推 Slack、不寫檔
 //   node fetch.js --seed       把現有職缺全部標記為已見過，不推任何東西
 //   node fetch.js --force      忽略「現在是不是排定時段」的檢查
+//   node fetch.js --test-slack 驗證 Slack 通不通：跑完整掃描，把命中的職缺
+//                              全部當成新的推一次，但「不」寫入 seen.json。
+//                              可以重複跑，不會污染去重狀態。
 // ---------------------------------------------------------------------------
 
 import fs from 'node:fs';
@@ -35,6 +38,7 @@ const args = new Set(process.argv.slice(2));
 const DRY_RUN = args.has('--dry-run');
 const SEED = args.has('--seed');
 const FORCE = args.has('--force');
+const TEST_SLACK = args.has('--test-slack');
 
 const TZ = 'America/Chicago';
 
@@ -62,7 +66,7 @@ function localDateStr() {
 }
 
 function shouldRunNow() {
-  if (FORCE || DRY_RUN || SEED) return true;
+  if (FORCE || DRY_RUN || SEED || TEST_SLACK) return true;
   const want = (process.env.RUN_HOURS || '')
     .split(',')
     .map((s) => Number(s.trim()))
@@ -142,11 +146,18 @@ function formatSlack(newJobs, errors) {
   const shown = newJobs.slice(0, MAX_SLACK_ITEMS);
   const overflow = newJobs.length - shown.length;
 
-  const lines = [
-    `🔴 *官網直擊* — ${date}`,
-    `${newJobs.length} 筆新職缺 · 監看 ${COMPANIES.length} 家`,
-    '',
-  ];
+  const lines = TEST_SLACK
+    ? [
+        `🧪 *連線測試* — ${date}`,
+        `Slack webhook 正常。以下是目前掃到的 ${newJobs.length} 筆職缺` +
+          `（測試模式會忽略去重、全部列出，實際運作時只會推新增的）。`,
+        '',
+      ]
+    : [
+        `🔴 *官網直擊* — ${date}`,
+        `${newJobs.length} 筆新職缺 · 監看 ${COMPANIES.length} 家`,
+        '',
+      ];
 
   const byCompany = {};
   for (const j of shown) (byCompany[j.company] ||= []).push(j);
@@ -241,6 +252,22 @@ async function main() {
   }
 
   console.log(`\n📊 命中 ${all.length} 筆，其中 ${newJobs.length} 筆是新的`);
+
+  // 連線測試：忽略去重、把命中的全部推一次，不碰 seen.json / digests。
+  // 用意是讓「Slack 到底通不通」這件事可以獨立驗證，不必等到剛好有新職缺。
+  if (TEST_SLACK) {
+    if (all.length === 0) {
+      console.log('\n⚠ 目前沒有任何命中職缺，改推一則純連線測試訊息。');
+      await postToSlack(
+        `🧪 *連線測試* — ${localDateStr()}\n` +
+          `Slack webhook 正常。目前 ${COMPANIES.length} 家都沒有符合條件的 intern 職缺。`
+      );
+    } else {
+      await postToSlack(formatSlack(all, errors));
+    }
+    console.log('🧪 測試模式：未寫入 seen.json，去重狀態不受影響。');
+    return;
+  }
 
   if (SEED || firstRun) {
     console.log(

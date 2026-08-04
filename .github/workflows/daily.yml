@@ -12,10 +12,14 @@ on:
   # Actions 頁面上手動觸發，用來測試
   workflow_dispatch:
     inputs:
-      dry_run:
-        description: '只預覽不推送 Slack'
-        type: boolean
-        default: false
+      mode:
+        description: '執行模式'
+        type: choice
+        default: normal
+        options:
+          - normal      # 正常跑：只推新職缺，會寫回 seen.json
+          - dry_run     # 只看 log，不推 Slack、不寫檔
+          - test_slack  # 驗證 Slack 通不通：推一次現有職缺，不寫檔
 
 permissions:
   contents: write # 需要寫回 seen.json 和 digests/
@@ -45,11 +49,11 @@ jobs:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           RUN_HOURS: '8,20'
         run: |
-          if [ "${{ inputs.dry_run }}" = "true" ]; then
-            node fetch.js --dry-run --force
-          else
-            node fetch.js
-          fi
+          case "${{ inputs.mode }}" in
+            dry_run)    node fetch.js --dry-run --force ;;
+            test_slack) node fetch.js --test-slack ;;
+            *)          node fetch.js ;;
+          esac
 
       - name: Commit state
         run: |
