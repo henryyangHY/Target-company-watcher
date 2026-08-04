@@ -17,7 +17,10 @@ on:
         type: choice
         default: normal
         options:
-          - normal      # 正常跑：只推新職缺，會寫回 seen.json
+          # 排程走的就是這個。手動選它多半是空轉 —— RUN_HOURS 閘門會擋下
+          # 非 8 點 / 20 點的執行。想馬上正式跑請選 run_now。
+          - normal
+          - run_now     # 忽略時段閘門，立刻正式跑（推 Slack、寫檔、commit）
           - dry_run     # 只看 log，不推 Slack、不寫檔
           - test_slack  # 驗證 Slack 通不通：推一次現有職缺，不寫檔
 
@@ -50,6 +53,7 @@ jobs:
           RUN_HOURS: '8,20'
         run: |
           case "${{ inputs.mode }}" in
+            run_now)    node fetch.js --force ;;
             dry_run)    node fetch.js --dry-run --force ;;
             test_slack) node fetch.js --test-slack ;;
             *)          node fetch.js ;;
