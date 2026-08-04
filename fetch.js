@@ -193,6 +193,26 @@ async function postToSlack(text) {
     console.log('⚠ 沒有 SLACK_WEBHOOK_URL，跳過推送');
     return false;
   }
+
+  // 先檢查這個 URL 到底指去哪。貼錯值（例如貼成 GitHub 的網址）時，
+  // 對方會回一大坨 HTML 錯誤頁，光看 stack trace 很難看出真正原因。
+  // 只印 host，不印完整網址 —— webhook URL 本身等同密碼。
+  let host;
+  try {
+    host = new URL(hook).host;
+  } catch {
+    throw new Error(
+      'SLACK_WEBHOOK_URL 不是合法網址。請確認 secret 裡存的是完整的 ' +
+        'https://hooks.slack.com/services/... 而不是其他東西。'
+    );
+  }
+  if (host !== 'hooks.slack.com') {
+    throw new Error(
+      `SLACK_WEBHOOK_URL 指向 ${host}，但 Slack incoming webhook 一定是 ` +
+        'hooks.slack.com。請到 repo Settings → Secrets and variables → Actions ' +
+        '重新設定，值要是 https://hooks.slack.com/services/T…/B…/… 這種格式。'
+    );
+  }
   const res = await fetch(hook, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
