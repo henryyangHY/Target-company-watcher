@@ -164,9 +164,10 @@ function formatSlack(newJobs, errors) {
 
   for (const [company, jobs] of Object.entries(byCompany)) {
     lines.push(`*${company}*`);
+    const note = COMPANIES.find((c) => c.name === company)?.note;
     for (const j of jobs) {
       lines.push(`• ${j.title}`);
-      const meta = [j.location, j.posted ? fmtPosted(j.posted) : null]
+      const meta = [j.location, j.posted ? fmtPosted(j.posted) : null, note]
         .filter(Boolean)
         .join(' · ');
       if (meta) lines.push(`   📍 ${meta}`);

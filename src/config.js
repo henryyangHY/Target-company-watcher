@@ -30,7 +30,37 @@ export const COMPANIES = [
     tenant: 'salesforce',
     site: 'External_Career_Site',
   },
+
+  // --- 2026-08-04 加入 -----------------------------------------------------
+  { name: 'Amazon', ats: 'amazon' },
+  { name: 'Figma', ats: 'greenhouse', token: 'figma' },
+  { name: 'Dropbox', ats: 'greenhouse', token: 'dropbox' },
+  { name: 'Atlassian', ats: 'atlassian', note: '⚠️ 不 sponsor F-1/OPT' },
+  {
+    name: 'Adobe',
+    ats: 'workday',
+    host: 'adobe.wd5.myworkdayjobs.com',
+    tenant: 'adobe',
+    site: 'external_experienced',
+  },
+  {
+    // Zoom 的 Workday 沒有 intern facet，會自動 fallback 成全量掃描 + 標題比對。
+    // 全站才 110 筆，掃完很快。
+    name: 'Zoom',
+    ats: 'workday',
+    host: 'zoom.wd5.myworkdayjobs.com',
+    tenant: 'zoom',
+    site: 'Zoom',
+  },
 ];
+
+// 查過但目前做不到的公司，記在這裡避免之後重複白工：
+//
+//   Apple  — jobs.apple.com 的 API 一律 301 到 pagenotfound，robots.txt 回
+//            HTML、sitemap 404。主動擋非瀏覽器存取，要 headless browser 才行。
+//   Meta   — metacareers.com 只有 GraphQL，需要 session token，太脆弱。
+//
+// 這兩家維持靠 Lane A（Gmail job alert）覆蓋。
 
 // ---------------------------------------------------------------------------
 // 過濾規則 — 刻意放寬。寧可多推幾筆讓你自己掃，也不要漏掉。

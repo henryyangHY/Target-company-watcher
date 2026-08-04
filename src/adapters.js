@@ -91,7 +91,9 @@ export async function workday({ host, tenant, site }) {
   let internFacet = null;
   for (const f of probe.facets || []) {
     if (f.facetParameter !== 'workerSubType') continue;
-    const hit = (f.values || []).find((v) => /intern/i.test(v.descriptor || ''));
+    // 必須用 \bintern\b。實測 Zoom 的 facet 裡有 "International Fixed Term"，
+    // 寬鬆的 /intern/i 會誤中它，結果只抓到 1 筆不相干的職缺。
+    const hit = (f.values || []).find((v) => /\bintern\b/i.test(v.descriptor || ''));
     if (hit) internFacet = hit.id;
   }
 
@@ -104,6 +106,9 @@ export async function workday({ host, tenant, site }) {
   const pageSize = 20;
   // 有 facet 的話通常十幾筆就掃完；沒有的話最多翻 40 頁（800 筆）保護一下
   const maxPages = internFacet ? 10 : 40;
+  // 只有第一頁的 total 是可信的。實測 Zoom 從第二頁開始一律回 total: 0，
+  // 拿它當迴圈邊界的話會在第 40 筆就誤判掃完（實際有 110 筆）。
+  let total = null;
 
   for (let page = 0; page < maxPages; page++) {
     const d = await post({
@@ -113,6 +118,7 @@ export async function workday({ host, tenant, site }) {
       searchText: '',
     });
     const postings = d.jobPostings || [];
+    if (total === null && d.total) total = d.total;
     for (const p of postings) {
       out.push({
         id: (p.bulletFields && p.bulletFields[0]) || p.externalPath,
@@ -127,7 +133,7 @@ export async function workday({ host, tenant, site }) {
       });
     }
     if (postings.length < pageSize) break;
-    if (out.length >= (d.total || 0)) break;
+    if (total !== null && out.length >= total) break;
     await sleep(400); // 對 Workday 客氣一點
   }
   return out;
@@ -263,4 +269,57 @@ export async function google({ location } = {}) {
   return out;
 }
 
-export const ADAPTERS = { greenhouse, ashby, workday, microsoft, google };
+// --- Amazon -----------------------------------------------------------------
+// amazon.jobs 有公開的 search.json，不需要任何 header 花招。
+// `is_intern` 欄位實測全是 null（連 intern 職缺也是），不能用，
+// 所以用 base_query=intern 讓 Amazon 先粗篩，再由 fetch.js 比標題。
+// 全站有 10000+ 職缺，base_query=intern 收斂到約 170 筆。
+export async function amazon() {
+  const out = [];
+  const pageSize = 100;
+
+  for (let page = 0; page < 3; page++) {
+    const d = await request(
+      'https://www.amazon.jobs/en/search.json?base_query=intern&sort=recent' +
+        `&result_limit=${pageSize}&offset=${page * pageSize}`
+    );
+    const jobs = d.jobs || [];
+    for (const j of jobs) {
+      out.push({
+        id: String(j.id_icims || j.id),
+        title: j.title,
+        location: j.normalized_location || j.location || '',
+        url: `https://www.amazon.jobs${j.job_path}`,
+        posted: j.posted_date || null,
+      });
+    }
+    if (jobs.length < pageSize) break;
+    await sleep(600);
+  }
+  return out;
+}
+
+// --- Atlassian --------------------------------------------------------------
+// Atlassian 後端是 iCIMS，但它自己有一個公開的 JSON endpoint 把全部職缺
+// 一次吐出來（約 240 筆 / 1.7MB，含全文 description —— 這裡直接丟掉）。
+// 不需要分頁。
+export async function atlassian() {
+  const d = await request('https://www.atlassian.com/endpoint/careers/listings');
+  return (Array.isArray(d) ? d : []).map((j) => ({
+    id: String(j.id),
+    title: j.title,
+    location: (j.locations || []).join(' / '),
+    url: j.applyUrl || j.portalJobPost?.portalUrl || '',
+    posted: j.portalJobPost?.updatedDate || null,
+  }));
+}
+
+export const ADAPTERS = {
+  greenhouse,
+  ashby,
+  workday,
+  microsoft,
+  google,
+  amazon,
+  atlassian,
+};

@@ -24,6 +24,21 @@ LinkedIn / Simplify / Handshake 的 job alert email 有 12–48 小時延遲而�
 | OpenAI | Ashby posting API | payload 約 12MB，adapter 內就丟掉 description |
 | Anthropic | Greenhouse board API | |
 | Salesforce | Workday CXS API | 用 `workerSubType` facet 篩 intern |
+| Amazon | amazon.jobs `search.json` | `is_intern` 欄位是壞的（全 null），改用 `base_query=intern` |
+| Figma | Greenhouse board API | |
+| Dropbox | Greenhouse board API | |
+| Atlassian | atlassian.com 自家 JSON endpoint | 後端是 iCIMS；⚠️ 不 sponsor F-1/OPT |
+| Adobe | Workday CXS API | 有 intern facet |
+| Zoom | Workday CXS API | 沒有 intern facet，自動 fallback 全量掃描 |
+
+### 查過但做不到的
+
+| 公司 | 原因 |
+|---|---|
+| Apple | `jobs.apple.com` 的 API 一律 301 到 pagenotfound，robots.txt 回 HTML、sitemap 404。主動擋非瀏覽器存取，要 headless browser 才行。 |
+| Meta | `metacareers.com` 只有 GraphQL，需要 session token，太脆弱。 |
+
+這兩家維持靠 Lane A（Gmail job alert）覆蓋。
 
 ## 安裝
 
